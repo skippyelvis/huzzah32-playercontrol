@@ -4,6 +4,7 @@ import os
 import glob
 
 VIDDIR = "/home/jaa/Videos"
+filelist = []
 
 def playpause(conn):
     subprocess.run(["playerctl", "play-pause"])
@@ -20,10 +21,17 @@ def rewind(conn, sec=10):
     print("rewind")
     conn.sendall(bytes("rewind", "UTF-8"))
 
+def play(conn, idx):
+    subprocess.run(["playerctl", "open", f"{filelist[idx]}"])
+    print(f"playing {filelist[idx]}")
+    conn.sendall(bytes(f"playing {filelist[idx]}", "UTF-8"))
+
 def list_videos(conn):
+    global filelist
     files = []
     files += list(glob.glob(VIDDIR + "/**/*.mp4", recursive=True))
     files += list(glob.glob(VIDDIR + "/**/*.mkv", recursive=True))
+    filelist = files
     msg = ",".join(files)
     print(msg)
     conn.sendall(bytes(msg, "UTF-8"))
@@ -41,7 +49,11 @@ def handle(buf, conn):
     if buf in handlers:
         handlers[buf](conn)
     else:
-        conn.sendall(bytes("awaiting command...", "UTF-8"))
+        try:
+            buf = int(buf)
+            play(conn, buf)
+        except:
+            conn.sendall(bytes("awaiting command...", "UTF-8"))
 
 if __name__ == "__main__":
     HOST = ""
@@ -51,7 +63,7 @@ if __name__ == "__main__":
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(TIMEOUT)
-
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((HOST, PORT))
     s.listen()
 
